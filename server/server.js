@@ -1,39 +1,48 @@
-const WebSocket = require('ws');
-const wss = new WebSocket.Server({host: '0.0.0.0', port: 8999});
+const SSHClient = require('ssh2').Client;
 
 
-function createWebSocket() {
-    //创建websocket链接
+export const createNewServer = (machineConfig, socket) => {
+    const ssh = new SSHClient();
+    const { host, username, password } = machineConfig;
+    // 连接成功
+    ssh.on('ready', function () {
 
-}
+        socket.send('\r\n*** SSH CONNECTION SUCCESS ***\r\n');
 
+        ssh.shell(function (err, stream) {
+            // 出错
+            if (err) {
+                return socket.send('\r\n*** SSH SHELL ERROR: ' + err.message + ' ***\r\n');
+            }
 
-wss.on('connection', function connection(ws) {
-    const conn = new Client();
-    conn.on('ready', () => {
-        ws.conn = conn;
-        ws.send('SSH connection established!');
-    });
-    conn.connect({
-        host: 'ssh.example.com',
-        username: 'username',
-        password: 'password'
-    });
-});
+            // 前端发送消息
+            socket.on('message', function (data) {
+                stream.write(data);
+            });
 
-wss.on('message', function incoming(message) {
-    wss.conn.exec(message, (err, stream) => {
-        if (err) throw err;
+            // 通过sh发送消息给前端
+            stream.on('data', function (d) {
+                socket.send(d.toString('binary'));
 
-        stream.on('data', (data) => {
-            wss.send(data.toString());
+                // 关闭连接
+            }).on('close', function () {
+                ssh.end();
+            });
         })
-            .stderr.on('data', (data) => {
-            ws.send(data.toString(), {isError: true});
-        });
-    });
-});
 
-wss.on('close', function close() {
-    wss.conn.end();
-});
+        // 关闭连接
+    }).on('close', function () {
+        socket.send('\r\n*** SSH CONNECTION CLOSED ***\r\n');
+
+        // 连接错误
+    }).on('error', function (err) {
+        socket.send('\r\n*** SSH CONNECTION ERROR: ' + err.message + ' ***\r\n');
+
+        // 连接
+    }).connect({
+        port: 22,
+        host,
+        username,
+        password
+    });
+}
