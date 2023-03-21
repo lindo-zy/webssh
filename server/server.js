@@ -1,48 +1,55 @@
+//ssh2客户端
 const SSHClient = require('ssh2').Client;
+const Server = require('ws').Server;
 
+//todo 做成配置
+const wss = new Server({
+    host: '0.0.0.0',
+    port: 8099
+});
 
-export const createNewServer = (machineConfig, socket) => {
+//ssh服务器信息
+const serverInfo = {
+    host: '',
+    port: 22,
+    username: 'root',
+    password: '123456'
+};
+
+function createSocket(ws) {
     const ssh = new SSHClient();
-    const { host, username, password } = machineConfig;
-    // 连接成功
     ssh.on('ready', function () {
-
-        socket.send('\r\n*** SSH CONNECTION SUCCESS ***\r\n');
-
-        ssh.shell(function (err, stream) {
-            // 出错
+        ws.send(`***${serverInfo.host} SSH CONNECTION ESTABLISHED***\r\n`);
+        ssh.shell({term: 'xterm'}, function (err, stream) {
             if (err) {
-                return socket.send('\r\n*** SSH SHELL ERROR: ' + err.message + ' ***\r\n');
-            }
+                return ws.emit(`\r\n***SSH SHELL ERROR:${err.message}***\r\n`);
 
-            // 前端发送消息
-            socket.on('message', function (data) {
+            }
+            ws.on('message', function (data) {
                 stream.write(data);
             });
-
-            // 通过sh发送消息给前端
+            ws.on('close', function (data) {
+                ssh.end();
+            });
             stream.on('data', function (d) {
-                socket.send(d.toString('binary'));
-
-                // 关闭连接
+                const data = d.toString();
+                //回显到控制台的数据
+                ws.send(data);
             }).on('close', function () {
                 ssh.end();
             });
-        })
-
-        // 关闭连接
-    }).on('close', function () {
-        socket.send('\r\n*** SSH CONNECTION CLOSED ***\r\n');
-
-        // 连接错误
-    }).on('error', function (err) {
-        socket.send('\r\n*** SSH CONNECTION ERROR: ' + err.message + ' ***\r\n');
-
-        // 连接
-    }).connect({
-        port: 22,
-        host,
-        username,
-        password
+        }).on('close', function () {
+            ws.close();
+        }).on('error', function (err) {
+            ws.close();
+        }).connect(serverInfo);
     });
+
 }
+
+
+wss.on('connection', function (ws, req) {
+    createSocket(ws);
+}).on('error', function (err) {
+    console.log(err);
+});
