@@ -1,6 +1,8 @@
 <template>
-  <div id="xterm">
 
+  <button @click="initSocket">链接</button>
+  <button @click="closeTerm">关闭</button>
+  <div id="xterm">
   </div>
 
 </template>
@@ -9,7 +11,7 @@
 import {FitAddon} from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import {Terminal} from 'xterm';
-import {AttachAddon} from 'xterm-addon-attach/src/AttachAddon';
+import {AttachAddon} from 'xterm-addon-attach';
 
 export default {
   name: 'App',
@@ -29,7 +31,7 @@ export default {
         cursorBlink: true
       });
 
-      const socket = null;
+      const socket = this.socket;
 
       const attachAddon = new AttachAddon(socket);
       const fitAddon = new FitAddon();
@@ -46,7 +48,7 @@ export default {
     },
     initSocket() {
       //初始化websocket链接
-      this.socket = new WebSocket(`ws://localhost:8999`);
+      this.socket = new WebSocket(`ws://localhost:8099`);
 
       this.socketOnClose();
       this.socketOnOpen();
@@ -70,14 +72,18 @@ export default {
       socket.onerror = () => {
         console.log('websocket关闭！');
       };
+    },
+    closeTerm(){
+      //关闭终端
+      this.term.close()
+      this.socket.close()
     }
-
   }
 };
 </script>
 
 <style>
-.xterm {
+#xterm {
   width: 100%;
   height: 100%;
 }
