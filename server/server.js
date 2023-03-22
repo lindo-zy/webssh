@@ -13,7 +13,7 @@ const serverInfo = {
     host: '',
     port: 22,
     username: 'root',
-    password: '123456'
+    password: ''
 };
 
 function createSocket(ws) {
@@ -23,7 +23,6 @@ function createSocket(ws) {
         ssh.shell({term: 'xterm'}, function (err, stream) {
             if (err) {
                 return ws.emit(`\r\n***SSH SHELL ERROR:${err.message}***\r\n`);
-
             }
             ws.on('message', function (data) {
                 stream.write(data);
@@ -42,8 +41,8 @@ function createSocket(ws) {
             ws.close();
         }).on('error', function (err) {
             ws.close();
-        }).connect(serverInfo);
-    });
+        });
+    }).connect(serverInfo);
 
 }
 
